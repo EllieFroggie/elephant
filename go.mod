@@ -27,6 +27,7 @@ require (
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
+	github.com/fhs/gompd/v2 v2.3.0 // indirect
 	github.com/go-git/gcfg/v2 v2.0.2 // indirect
 	github.com/go-git/go-billy/v6 v6.0.0-20251022185412-61e52df296a5 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect

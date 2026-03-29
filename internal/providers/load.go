@@ -50,11 +50,14 @@ var (
 )
 
 func Load(setup bool) {
-	common.LoadMenus()
-	ignored := common.GetElephantConfig().IgnoredProviders
+	go common.LoadMenus()
+
+	cfg := common.GetElephantConfig()
+	ignored := cfg.IgnoredProviders
+	host, _ := os.Hostname()
 
 	var mut sync.Mutex
-	have := []string{}
+	have := make(map[string]struct{})
 	dirs := libDirs
 	env := os.Getenv("ELEPHANT_PROVIDER_DIR")
 
@@ -86,15 +89,17 @@ func Load(setup bool) {
 				os.Exit(1)
 			}
 
+			base := filepath.Base(path)
+
 			mut.Lock()
-			done := slices.Contains(have, filepath.Base(path))
+			_, done := have[base]
 			mut.Unlock()
 
-			fn := strings.TrimSuffix(filepath.Base(path), ".so")
+			fn := strings.TrimSuffix(base, ".so")
 
 			if slices.Contains(ignored, fn) {
 				mut.Lock()
-				have = append(have, filepath.Base(path))
+				have[base] = struct{}{}
 				mut.Unlock()
 
 				return nil
@@ -107,93 +112,95 @@ func Load(setup bool) {
 					return nil
 				}
 
-				name, err := p.Lookup("Name")
-				if err != nil {
-					slog.Error("providers", "load", err, "provider", path)
-				}
-
-				namePretty, err := p.Lookup("NamePretty")
-				if err != nil {
-					slog.Error("providers", "load", err, "provider", path)
-				}
-
-				activateFunc, err := p.Lookup("Activate")
-				if err != nil {
-					slog.Error("providers", "load", err, "provider", path)
-				}
-
-				hideFromProviderlistFunc, err := p.Lookup("HideFromProviderlist")
-				if err != nil {
-					slog.Error("providers", "load", err, "provider", path)
-				}
-
 				availableFunc, err := p.Lookup("Available")
 				if err != nil {
 					slog.Error("providers", "load", err, "provider", path)
 				}
 
-				queryFunc, err := p.Lookup("Query")
-				if err != nil {
-					slog.Error("providers", "load", err, "provider", path)
-				}
+				if availableFunc.(func() bool)() {
+					name, err := p.Lookup("Name")
+					if err != nil {
+						slog.Error("providers", "load", err, "provider", path)
+					}
 
-				iconFunc, err := p.Lookup("Icon")
-				if err != nil {
-					slog.Error("providers", "load", err, "provider", path)
-				}
+					n := name.(*string)
 
-				printDocFunc, err := p.Lookup("PrintDoc")
-				if err != nil {
-					slog.Error("providers", "load", err, "provider", path)
-				}
+					if val, ok := cfg.ProviderHosts[*n]; ok && len(val) > 0 {
+						if !slices.Contains(val, host) {
+							slog.Info("providers", "ignored", *n, "hosts", val, "host", host)
+							return nil
+						}
+					}
 
-				setupFunc, err := p.Lookup("Setup")
-				if err != nil {
-					slog.Error("providers", "load", err, "provider", path)
-				}
+					namePretty, err := p.Lookup("NamePretty")
+					if err != nil {
+						slog.Error("providers", "load", err, "provider", path)
+					}
 
-				loadConfigFunc, err := p.Lookup("LoadConfig")
-				if err != nil {
-					slog.Error("providers", "load", err, "provider", path)
-				}
+					activateFunc, err := p.Lookup("Activate")
+					if err != nil {
+						slog.Error("providers", "load", err, "provider", path)
+					}
 
-				stateFunc, err := p.Lookup("State")
-				if err != nil {
-					slog.Error("providers", "load", err, "provider", path)
-				}
+					hideFromProviderlistFunc, err := p.Lookup("HideFromProviderlist")
+					if err != nil {
+						slog.Error("providers", "load", err, "provider", path)
+					}
 
-				provider := Provider{
-					Icon:                 iconFunc.(func() string),
-					Setup:                setupFunc.(func()),
-					LoadConfig:           loadConfigFunc.(func()),
-					Name:                 name.(*string),
-					Activate:             activateFunc.(func(bool, string, string, string, string, uint8, net.Conn)),
-					Query:                queryFunc.(func(net.Conn, string, bool, bool, uint8) []*pb.QueryResponse_Item),
-					NamePretty:           namePretty.(*string),
-					HideFromProviderlist: hideFromProviderlistFunc.(func() bool),
-					PrintDoc:             printDocFunc.(func(bool)),
-					Available:            availableFunc.(func() bool),
-					State:                stateFunc.(func(string) *pb.ProviderStateResponse),
-				}
+					queryFunc, err := p.Lookup("Query")
+					if err != nil {
+						slog.Error("providers", "load", err, "provider", path)
+					}
 
-				available := provider.Available()
+					iconFunc, err := p.Lookup("Icon")
+					if err != nil {
+						slog.Error("providers", "load", err, "provider", path)
+					}
 
-				if setup && available {
-					go provider.Setup()
-				}
+					printDocFunc, err := p.Lookup("PrintDoc")
+					if err != nil {
+						slog.Error("providers", "load", err, "provider", path)
+					}
 
-				if available {
+					setupFunc, err := p.Lookup("Setup")
+					if err != nil {
+						slog.Error("providers", "load", err, "provider", path)
+					}
+
+					loadConfigFunc, err := p.Lookup("LoadConfig")
+					if err != nil {
+						slog.Error("providers", "load", err, "provider", path)
+					}
+
+					stateFunc, err := p.Lookup("State")
+					if err != nil {
+						slog.Error("providers", "load", err, "provider", path)
+					}
+
+					provider := Provider{
+						Icon:                 iconFunc.(func() string),
+						Setup:                setupFunc.(func()),
+						LoadConfig:           loadConfigFunc.(func()),
+						Name:                 name.(*string),
+						Activate:             activateFunc.(func(bool, string, string, string, string, uint8, net.Conn)),
+						Query:                queryFunc.(func(net.Conn, string, bool, bool, uint8) []*pb.QueryResponse_Item),
+						NamePretty:           namePretty.(*string),
+						HideFromProviderlist: hideFromProviderlistFunc.(func() bool),
+						PrintDoc:             printDocFunc.(func(bool)),
+						Available:            availableFunc.(func() bool),
+						State:                stateFunc.(func(string) *pb.ProviderStateResponse),
+					}
+
+					if setup {
+						go provider.Setup()
+					}
+
 					mut.Lock()
 					Providers[*provider.Name] = provider
+					have[base] = struct{}{}
 					mut.Unlock()
-				}
 
-				slog.Info("providers", "loaded", *provider.Name)
-
-				if available {
-					mut.Lock()
-					have = append(have, filepath.Base(path))
-					mut.Unlock()
+					slog.Info("providers", "loaded", *provider.Name)
 				}
 			}
 

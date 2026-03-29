@@ -11,11 +11,12 @@ import (
 )
 
 type NiriWorkspace struct {
-	Output    string `json:"output"`
-	Name      string `json:"name"`
-	Id        int    `json:"id"`
-	Idx       int    `json:"idx"`
-	IsFocused bool   `json:"is_focused"`
+	Output         string `json:"output"`
+	Name           string `json:"name"`
+	Id             int    `json:"id"`
+	Idx            int    `json:"idx"`
+	IsFocused      bool   `json:"is_focused"`
+	ActiveWindowId int    `json:"active_window_id"`
 }
 
 type NiriWindow struct {
@@ -92,7 +93,11 @@ func (n NiriWorkspaceHandler) GetWorkspaces(query string, exact bool) []*pb.Quer
 	}
 
 	for _, v := range workspaces {
-		text := fmt.Sprintf("Workspace: %d", v.Id)
+		if !config.ShowEmptyWorkspaces && v.ActiveWindowId == 0 && v.Name == "" {
+			continue
+		}
+
+		text := fmt.Sprintf("Workspace: %d", v.Idx)
 
 		if v.Name != "" {
 			text = fmt.Sprintf("Workspace: %s", v.Name)

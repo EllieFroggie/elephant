@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"time"
 
@@ -31,6 +32,7 @@ type MenuConfig struct {
 }
 
 type Menu struct {
+	Hosts                []string          `toml:"hosts" desc:"menu will only be shown on this hosts. If empty, all." default:"[]"`
 	HideFromProviderlist bool              `toml:"hide_from_providerlist" desc:"hides a provider from the providerlist provider. provider provider." default:"false"`
 	Name                 string            `toml:"name" desc:"name of the menu"`
 	NamePretty           string            `toml:"name_pretty" desc:"prettier name you usually want to display to the user."`
@@ -46,6 +48,7 @@ type Menu struct {
 	Terminal             bool              `toml:"terminal" desc:"execute action in terminal or not"`
 	Keywords             []string          `toml:"keywords" desc:"searchable keywords"`
 	FixedOrder           bool              `toml:"fixed_order" desc:"don't sort entries alphabetically"`
+	SearchPriority       []string          `toml:"priority" desc:"The later on the list the bigger penalty. [text, subtext, keywords]"`
 	History              bool              `toml:"history" desc:"make use of history for sorting"`
 	HistoryWhenEmpty     bool              `toml:"history_when_empty" desc:"consider history when query is empty"`
 	MinScore             int32             `toml:"min_score" desc:"minimum score for items to be displayed" default:"depends on provider"`
@@ -314,6 +317,21 @@ func (m *Menu) CreateLuaEntries(query string) {
 					entry.Subtext = string(subtext.(lua.LString))
 				}
 
+				if state := item.RawGet(lua.LString("Hosts")); state != lua.LNil {
+					if stateTable, ok := state.(*lua.LTable); ok {
+						entry.Hosts = make([]string, 0)
+						stateTable.ForEach(func(key, value lua.LValue) {
+							if str, ok := value.(lua.LString); ok {
+								entry.Hosts = append(entry.Hosts, string(str))
+							}
+						})
+					}
+				}
+
+				if len(entry.Hosts) > 0 && !slices.Contains(entry.Hosts, host) {
+					return
+				}
+
 				if submenu := item.RawGetString("SubMenu"); submenu != lua.LNil {
 					entry.SubMenu = string(submenu.(lua.LString))
 				}
@@ -334,6 +352,17 @@ func (m *Menu) CreateLuaEntries(query string) {
 								if valueStr, valueOk := value.(lua.LString); valueOk {
 									entry.Actions[string(keyStr)] = string(valueStr)
 								}
+							}
+						})
+					}
+				}
+
+				if val := item.RawGet(lua.LString("Keywords")); val != lua.LNil {
+					if table, ok := val.(*lua.LTable); ok {
+						entry.Keywords = make([]string, 0)
+						table.ForEach(func(key, value lua.LValue) {
+							if str, ok := value.(lua.LString); ok {
+								entry.Keywords = append(entry.Keywords, string(str))
 							}
 						})
 					}
@@ -375,6 +404,7 @@ func (m *Menu) CreateLuaEntries(query string) {
 }
 
 type Entry struct {
+	Hosts       []string          `toml:"hosts" desc:"entry will only be shown on this hosts. If empty, all." default:"[]"`
 	Text        string            `toml:"text" desc:"text for entry"`
 	Async       string            `toml:"async" desc:"if the text should be updated asynchronously based on the action"`
 	Subtext     string            `toml:"subtext" desc:"sub text for entry"`
@@ -401,9 +431,12 @@ var (
 	MenuConfigLoaded MenuConfig
 	menuname         = "menus"
 	Menus            = make(map[string]*Menu)
+	host             = ""
 )
 
 func LoadMenus() {
+	host, _ = os.Hostname()
+
 	MenuConfigLoaded = MenuConfig{
 		Config: Config{
 			MinScore: 10,
@@ -528,6 +561,17 @@ func createLuaMenu(path string) {
 		}
 	}
 
+	if val := state.GetGlobal("SearchPriority"); val != lua.LNil {
+		if table, ok := val.(*lua.LTable); ok {
+			m.SearchPriority = make([]string, 0)
+			table.ForEach(func(key, value lua.LValue) {
+				if str, ok := value.(lua.LString); ok {
+					m.SearchPriority = append(m.SearchPriority, string(str))
+				}
+			})
+		}
+	}
+
 	if val := state.GetGlobal("RefreshOnChange"); val != lua.LNil {
 		if table, ok := val.(*lua.LTable); ok {
 			m.RefreshOnChange = make([]string, 0)
@@ -537,6 +581,21 @@ func createLuaMenu(path string) {
 				}
 			})
 		}
+	}
+
+	if val := state.GetGlobal("Hosts"); val != lua.LNil {
+		if table, ok := val.(*lua.LTable); ok {
+			m.Hosts = make([]string, 0)
+			table.ForEach(func(key, value lua.LValue) {
+				if str, ok := value.(lua.LString); ok {
+					m.Hosts = append(m.Hosts, string(str))
+				}
+			})
+		}
+	}
+
+	if len(m.Hosts) > 0 && !slices.Contains(m.Hosts, host) {
+		return
 	}
 
 	if val := state.GetGlobal("FixedOrder"); val != lua.LNil {
@@ -607,6 +666,10 @@ func createTomlMenu(path string) {
 		} else {
 			m.Entries[k].Identifier = fmt.Sprintf("%s:%s", m.Name, identifier)
 		}
+	}
+
+	if len(m.Hosts) > 0 && !slices.Contains(m.Hosts, host) {
+		return
 	}
 
 	Menus[m.Name] = &m

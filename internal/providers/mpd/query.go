@@ -102,7 +102,7 @@ func Query(conn net.Conn, query string, single, exact bool, _ uint8) []*pb.Query
 }
 
 func SearchMpd(queryString string, searchType string) []mpd.Attrs {
-	mpdConnection, err := getMpdConnection() // take a shot every time you see these 5 lines of code
+	mpdConnection, err := getMpdConnection()
 	if err != nil {
 		return nil
 	}
@@ -129,11 +129,16 @@ func SearchMpd(queryString string, searchType string) []mpd.Attrs {
 					return dA < dB
 				}
 			}
+
 			alA, alB := GetField(a, "Album", "album"), GetField(b, "Album", "album")
 			if alA != alB {
 				return alA < alB
 			}
-			return GetField(a, "Track", "track") < GetField(b, "Track", "track")
+
+			// Numerical comparison instead of string comparison
+			trA := parseTrackNumber(GetField(a, "Track", "track"))
+			trB := parseTrackNumber(GetField(b, "Track", "track"))
+			return trA < trB
 		})
 	}
 
@@ -162,6 +167,7 @@ func NowPlayingMPD() *pb.QueryResponse_Item {
 	}
 
 	name, desc := fmt.Sprintf("Now Playing: %s", current["Title"]), fmt.Sprintf("%s - %s", current["Artist"], current["Album"])
+
 	if current["Title"] == "" {
 		name, desc = "Nothing Playing", "It's pretty quiet in here..."
 	}
@@ -171,7 +177,7 @@ func NowPlayingMPD() *pb.QueryResponse_Item {
 		Subtext:     desc,
 		Identifier:  current["file"],
 		Provider:    Name,
-		Actions:     []string{"playpause", "shuffle_library", "clear_queue", "toggle_preview"},
+		Actions:     []string{"playpause", "shuffle_library", "clear_queue", "toggle_preview", "update_library"},
 		Preview:     GetAlbumArt(current["file"]),
 		PreviewType: util.PreviewTypeFile, Score: 1000,
 	}
@@ -279,4 +285,14 @@ func GetTrackInfoText(res mpd.Attrs) string {
 
 	return fmt.Sprintf("Title:  %s\nArtist: %s\nAlbum:  %s\nGenre:  %s\nYear:   %s\nFormat: %s\nFile:   %s",
 		title, artist, album, genre, date, format, file)
+}
+
+func parseTrackNumber(trackStr string) int {
+	track := strings.Split(trackStr, "/")[0]
+	num, err := strconv.Atoi(track)
+	if err != nil {
+		return 0
+	}
+
+	return num
 }

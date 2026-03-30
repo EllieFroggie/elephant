@@ -57,6 +57,8 @@ func Activate(single bool, identifier, action, query, args string, format uint8,
 			handleShuffle(mpdConnection)
 		case "toggle_preview":
 			showAlbumArt = !showAlbumArt
+		case "update_library":
+			mpdConnection.Update("")
 		}
 
 	}

@@ -29,6 +29,8 @@ type Config struct {
 	MaxPoolSize   int    `koanf:"max_mpd_connections"`
 }
 
+func LoadConfig() {}
+
 func Setup() {
 	config = &Config{
 		MaxPoolSize:  5,
@@ -89,7 +91,7 @@ func Available() bool {
 
 func Icon() string { return config.Icon }
 
-func PrintDoc() {}
+func PrintDoc(write bool) {}
 
 func HideFromProviderlist() bool { return false }
 

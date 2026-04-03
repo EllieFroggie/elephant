@@ -53,11 +53,7 @@ func Setup() {
 		NamePretty = config.NamePretty
 	}
 
-	initPool(config.MaxPoolSize)
-}
-
-func initPool(size int) {
-	mpdPool = make(chan *mpd.Client, size)
+	mpdPool = make(chan *mpd.Client, config.MaxPoolSize)
 }
 
 func getMpdConnection() (*mpd.Client, error) {

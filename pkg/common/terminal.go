@@ -12,6 +12,7 @@ import (
 	"strings"
 	"syscall"
 
+	"al.essio.dev/pkg/shellescape"
 	"github.com/adrg/xdg"
 	"github.com/charlievieth/fastwalk"
 )
@@ -128,7 +129,7 @@ func findTerminalApps() {
 }
 
 func ForceTerminalForFile(file string) bool {
-	cmd := exec.Command("sh", "-c", fmt.Sprintf("xdg-mime query default $(xdg-mime query filetype %s)", file))
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("xdg-mime query default $(xdg-mime query filetype %s)", shellescape.Quote(file)))
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setsid: true,
 	}

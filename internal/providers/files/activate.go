@@ -9,6 +9,7 @@ import (
 	"strings"
 	"syscall"
 
+	"al.essio.dev/pkg/shellescape"
 	"github.com/abenz1267/elephant/v2/pkg/common"
 )
 
@@ -62,7 +63,7 @@ func Activate(single bool, identifier, action string, query string, args string,
 			path = filepath.Dir(path)
 		}
 
-		run := strings.TrimSpace(fmt.Sprintf("%s xdg-open '%s'", common.LaunchPrefix(), path))
+		run := strings.TrimSpace(fmt.Sprintf("%s xdg-open %s", common.LaunchPrefix(), shellescape.Quote(path)))
 
 		if common.ForceTerminalForFile(path) {
 			run = common.WrapWithTerminal(run)

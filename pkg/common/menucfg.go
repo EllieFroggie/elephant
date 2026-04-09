@@ -479,6 +479,8 @@ func LoadMenus() {
 				createLuaMenu(path)
 			}
 
+			slog.Info("menu", "loaded", path)
+
 			return nil
 		}); err != nil {
 			slog.Error(menuname, "walk", err)

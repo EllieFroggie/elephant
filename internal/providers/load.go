@@ -50,8 +50,6 @@ var (
 )
 
 func Load(setup bool) {
-	go common.LoadMenus()
-
 	cfg := common.GetElephantConfig()
 	ignored := cfg.IgnoredProviders
 	host, _ := os.Hostname()
@@ -193,6 +191,10 @@ func Load(setup bool) {
 
 					if setup {
 						go provider.Setup()
+					}
+
+					if *n == "menus" {
+						common.LoadMenus()
 					}
 
 					mut.Lock()

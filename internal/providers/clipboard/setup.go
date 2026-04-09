@@ -76,6 +76,7 @@ type Config struct {
 	TextEditorCmd  string `koanf:"text_editor_cmd" desc:"editor to use for text, otherwise default for mimetype. use '%FILE%' as placeholder for file path." default:""`
 	Command        string `koanf:"command" desc:"default command to be executed" default:"wl-copy"`
 	IgnoreSymbols  bool   `koanf:"ignore_symbols" desc:"ignores symbols/unicode" default:"true"`
+	PinnedOnTop    bool   `koanf:"pinned_on_top" desc:"put pinned items on top" default:"false"`
 	AutoCleanup    int    `koanf:"auto_cleanup" desc:"will automatically cleanup entries entries older than X minutes" default:"0"`
 }
 
@@ -134,6 +135,7 @@ func LoadConfig() {
 		Command:        "wl-copy",
 		IgnoreSymbols:  true,
 		AutoCleanup:    0,
+		PinnedOnTop:    false,
 	}
 
 	common.LoadConfig(Name, config)
@@ -895,7 +897,7 @@ func Query(conn net.Conn, query string, _ bool, exact bool, _ uint8) []*pb.Query
 		})
 
 		for k, v := range entries {
-			if slices.Contains(v.State, "pinned") {
+			if slices.Contains(v.State, "pinned") && config.PinnedOnTop {
 				entries[k].Score = int32(1_000_000_000 - k)
 			} else {
 				entries[k].Score = int32(1_000_000 - k)
